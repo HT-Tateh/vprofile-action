@@ -16,8 +16,8 @@ jobs:
       - name: Maven test
         run: mvn test
 
-      - name: Checkstyle
-        run: mvn checkstyle:checkstyle
+      - name: Checkstyle report
+        run: mvn --batch-mode checkstyle:check -Dcheckstyle.failOnViolation=false
 
       # Official SonarSource scanner: downloads the Java version SonarCloud
       # needs (21+) by itself, so no setup-java step is required here.
