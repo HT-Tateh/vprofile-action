@@ -1,5 +1,10 @@
 name: VProfile Actions
-on: workflow_dispatch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   AWS_REGION: us-east-1
@@ -9,44 +14,39 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
+          cache: maven
 
       - name: Maven test
-        run: mvn test
+        run: mvn --batch-mode test
 
-      - name: Checkstyle
-        run: mvn checkstyle:checkstyle
+      - name: Generate Checkstyle report
+        run: mvn --batch-mode checkstyle:checkstyle
 
-      # Official SonarSource scanner: downloads the Java version SonarCloud
-      # needs (21+) by itself, so no setup-java step is required here.
-      - name: SonarQube Scan
+      - name: SonarQube Cloud scan and Quality Gate
         uses: SonarSource/sonarqube-scan-action@v5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
         with:
-          args: >
+          scannerVersion: '8.2.0.6438'
+          args: >-
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-            -Dsonar.sources=src/
-            -Dsonar.junit.reportsPath=target/surefire-reports/
-            -Dsonar.jacoco.reportsPath=target/jacoco.exec
+            -Dsonar.sources=src/main
+            -Dsonar.tests=src/test
+            -Dsonar.java.binaries=target/classes
+            -Dsonar.junit.reportsPath=target/surefire-reports
             -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml
-            -Dsonar.java.binaries=target/test-classes/com/visualpathit/account
-
-      # Check the Quality Gate status
-      - name: SonarQube Quality Gate check
-        uses: sonarsource/sonarqube-quality-gate-action@v1
-        # Fail the step if the Quality Gate status is not received within 5 minutes
-        timeout-minutes: 5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
